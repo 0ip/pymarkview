@@ -12,3 +12,7 @@ PyMarkView serves as a PyQt learning project. Only a Markdown subset is currentl
 <p align="center">
   <img alt="PyMarkView screenshot" width="60%" src="https://factor.cc/pmv/screen.jpg">
 </p>
+
+## Installation
+* `Option 1 (Easy)`: Click on _Releases_ and download the executable for your platform
+* `Option 2 (Not recommended)`: Clone the repository and install [Anaconda](https://www.continuum.io/downloads) or Python + PyQt by hand
