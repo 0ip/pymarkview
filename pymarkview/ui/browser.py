@@ -1,3 +1,6 @@
+import webbrowser
+
+from PyQt5.QtCore import *
 from PyQt5.QtWebKit import *
 from PyQt5.QtWebKitWidgets import *
 

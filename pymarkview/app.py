@@ -23,10 +23,7 @@ class App(QMainWindow):
         self.setWindowTitle(self.app_title)
         self.setWindowIcon(QIcon('pymarkview/resources/icon.ico'))
 
-        self.init_settings()
-        self.init_ui()
-
-    def init_settings(self):
+        # Init Settings
         self.use_css = True
         self.debug_mode = False
 
@@ -34,7 +31,6 @@ class App(QMainWindow):
         self.changes_since_save = False
 
         self.last_used_file = ".last_used"
-
         self.path = ""
 
         if os.path.isfile(self.last_used_file):
@@ -50,6 +46,9 @@ class App(QMainWindow):
                         print("Most recently used file does not exist anymore.")
         else:
             open(self.last_used_file, 'a').close()
+
+        # Init UI
+        self.init_ui()
 
     def update_last_used(self, path):
         if not path:
