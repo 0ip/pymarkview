@@ -2,6 +2,9 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 
+from urllib.parse import urlparse
+from urllib.request import url2pathname
+
 
 class LineNumberEditor(QFrame):
 
@@ -33,7 +36,7 @@ class LineNumberEditor(QFrame):
             self.adjustWidth(1)
 
         def paintEvent(self, event):
-            self.editor.numberbarPaint(self, event)
+            self.editor.numberbar_paint(self, event)
             QWidget.paintEvent(self, event)
 
         def adjustWidth(self, count):
@@ -49,6 +52,8 @@ class LineNumberEditor(QFrame):
 
     class Editor(QPlainTextEdit):
 
+        document_dropped = pyqtSignal(str)
+
         def __init__(self):
             self.view = QPlainTextEdit.__init__(self)
             self.setFrameStyle(QFrame.NoFrame)
@@ -63,7 +68,7 @@ class LineNumberEditor(QFrame):
 
             self.cursorPositionChanged.connect(self.highlight)
 
-        def numberbarPaint(self, number_bar, event):
+        def numberbar_paint(self, number_bar, event):
             font_metrics = self.fontMetrics()
 
             block = self.firstVisibleBlock()
@@ -114,8 +119,13 @@ class LineNumberEditor(QFrame):
 
         def dropEvent(self, e):
             url = e.mimeData().urls()[0].toString()
-            if url.endswith(".jpg") or url.endswith(".png"):
+
+            if url.lower().endswith((".jpeg", ".jpg", ".png", ".gif")):
                 self.textCursor().insertText("![blank]({url})".format(url=url))
+
+            if url.lower().endswith((".txt", ".md")):
+                path = url2pathname(urlparse(url).path)
+                self.document_dropped.emit(path)
 
             # Construct dummy event in order to fire cleanup procedure in parent method
             mimeData = QMimeData()
