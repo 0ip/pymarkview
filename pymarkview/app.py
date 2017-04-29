@@ -89,6 +89,9 @@ class App(QMainWindow):
         export_action.setStatusTip('Export text file in selected format')
         export_action.triggered.connect(self.export_file)
 
+        line_wrapping_action = QAction("&Word Wrap", self, checkable=True, checked=True)
+        line_wrapping_action.toggled.connect(lambda: self.editor().setLineWrapMode(line_wrapping_action.isChecked()))
+
         hide_prev_action = QAction('&Show preview', self, checkable=True, checked=True)
         hide_prev_action.setShortcut("Ctrl+P")
         hide_prev_action.toggled.connect(lambda: self.preview.setVisible(hide_prev_action.isChecked()))
@@ -112,6 +115,9 @@ class App(QMainWindow):
         menu.addAction(export_action)
 
         menu = menu_bar.addMenu('&Editor')
+        menu.addAction(line_wrapping_action)
+
+        menu = menu_bar.addMenu('&Preview')
         menu.addAction(hide_prev_action)
         menu.addAction(use_css_action)
         menu.addAction(debug_action)

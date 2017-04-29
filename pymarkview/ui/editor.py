@@ -59,7 +59,6 @@ class LineNumberEditor(QFrame):
         def __init__(self):
             self.view = QPlainTextEdit.__init__(self)
             self.setFrameStyle(QFrame.NoFrame)
-            self.setLineWrapMode(False)
 
             self.font = QFont()
             self.font.setFamily('Consolas')
