@@ -52,6 +52,8 @@ class LineNumberEditor(QFrame):
 
     class Editor(QPlainTextEdit):
 
+        TAB_WIDTH = 4
+
         document_dropped = pyqtSignal(str)
 
         def __init__(self):
@@ -105,11 +107,47 @@ class LineNumberEditor(QFrame):
             self.setExtraSelections([hi_selection])
 
         def keyPressEvent(self, e):
-            if e.key() == Qt.Key_Tab:
-                self.textCursor().insertText(" "*4)
+            if e.key() == Qt.Key_Tab or e.key() == Qt.Key_Backtab:
+                handle_func = None
+
+                if e.key() == Qt.Key_Backtab:
+                    handle_func = self.unindent
+
+                if e.key() == Qt.Key_Tab:
+                    handle_func = self.indent
+
+                cursor = self.textCursor()
+                if cursor.hasSelection():
+                    start = cursor.blockNumber()
+                    cursor.setPosition(cursor.selectionEnd())
+                    diff = cursor.blockNumber() - start
+
+                    for n in range(diff + 1):
+                        handle_func(cursor, True)
+                        cursor.movePosition(QTextCursor.Up)
+                else:
+                    handle_func(cursor, False)
+
                 return
 
             QPlainTextEdit.keyPressEvent(self, e)
+
+        def indent(self, cursor, is_block):
+            if is_block:
+                cursor.movePosition(QTextCursor.StartOfLine)
+
+            cursor.insertText(" " * self.TAB_WIDTH)
+
+        def unindent(self, cursor, is_block):
+            cursor.movePosition(QTextCursor.StartOfLine)
+
+            curr_line = cursor.block().text()
+
+            for char in curr_line[:self.TAB_WIDTH]:
+                if char != " ":
+                    break
+
+                cursor.deleteChar()
 
         def dragEnterEvent(self, e):
             if e.mimeData().hasUrls():
