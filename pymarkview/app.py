@@ -125,7 +125,8 @@ class App(QMainWindow):
         self.md = Markdown()
 
         self.editor = LineNumberEditor()
-        self.editor.editor.textChanged.connect(self.editor_handler)
+        self.editor().textChanged.connect(self.editor_handler)
+        self.editor().document_dropped.connect(self.load_file)
 
         self.preview = Browser()
 
@@ -190,7 +191,9 @@ class App(QMainWindow):
 
         return True
 
-    def load_file(self):
+    @pyqtSlot(str)
+    @pyqtSlot(bool)
+    def load_file(self, filename=None):
         if self.changes_since_save:
             proceed = QMessageBox.warning(
                 self, self.app_title, "Discard changes and open new file?", QMessageBox.Yes, QMessageBox.No)
@@ -200,10 +203,13 @@ class App(QMainWindow):
         if proceed == QMessageBox.No:
             return False
 
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Open Markdown text file", "", "Text Files (*.txt;*.md);;All Files (*)")
         if filename:
             self._load_file(filename)
+        else:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, "Open Markdown text file", "", "Text Files (*.txt;*.md);;All Files (*)")
+            if filename:
+                self._load_file(filename)
 
     def _load_file(self, filename):
         if filename:

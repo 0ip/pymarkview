@@ -1,6 +1,9 @@
 # PyMarkView
 .last_used
 
+# PyCharm
+.idea/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
