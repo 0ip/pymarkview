@@ -1,4 +1,5 @@
 import html
+import sys
 
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -11,6 +12,7 @@ from pymarkview.resources.defaults import welcome_text, stylesheet
 
 from pathlib import Path
 
+
 class App(QMainWindow):
 
     def __init__(self, app):
@@ -18,7 +20,7 @@ class App(QMainWindow):
 
         self.app = app
         self.app_title = "PyMarkView"
-        self.app_icon = QIcon('pymarkview/resources/icon.ico')
+        self.app_icon = QIcon(self.resource_path("pymarkview/resources/icon.ico"))
 
         self.setWindowTitle(self.app_title)
         self.setWindowIcon(self.app_icon)
@@ -334,3 +336,10 @@ class App(QMainWindow):
         with open(inp, "r") as i:
             with open(out, "w") as o:
                 print(md.parse(i.read()), file=o)
+
+    def resource_path(self, relative_path):
+        """ Get absolute path to PyInstaller resource """
+        try:
+            return str(Path(sys._MEIPASS).joinpath(Path(relative_path).name))
+        except Exception:
+            return relative_path
