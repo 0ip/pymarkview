@@ -22,7 +22,3 @@ class Browser(QWebView):
     def handle_link_click(self, url):
         webbrowser.open(url.toString())
         print(url.toString())
-
-    def disable_javascript(self):
-        settings = QWebSettings.globalSettings()
-        settings.setAttribute(QWebSettings.JavascriptEnabled, False)
