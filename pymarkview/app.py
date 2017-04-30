@@ -19,9 +19,10 @@ class App(QMainWindow):
 
         self.app = app
         self.app_title = "PyMarkView"
+        self.app_icon = QIcon('pymarkview/resources/icon.ico')
 
         self.setWindowTitle(self.app_title)
-        self.setWindowIcon(QIcon('pymarkview/resources/icon.ico'))
+        self.setWindowIcon(self.app_icon)
 
         # Init Settings
         self.use_css = True
@@ -50,20 +51,6 @@ class App(QMainWindow):
         # Init UI
         self.init_ui()
 
-    def update_last_used(self, path):
-        if not path:
-            path = ""
-            self.message = "untitled"
-            self.update_app_title()
-        else:
-            self.message = path
-            self.update_app_title()
-            self._set_changes_since_save(False)
-
-        self.path = path
-        with open(self.last_used_file, 'w') as f:
-            print(path, file=f)
-
     def init_menu(self):
         new_action = QAction("&New File", self)
         new_action.setShortcut("Ctrl+N")
@@ -73,7 +60,7 @@ class App(QMainWindow):
         load_action = QAction("&Open File...", self)
         load_action.setShortcut("Ctrl+O")
         load_action.setStatusTip('Load any text file in Markdown format')
-        load_action.triggered.connect(self.load_file)
+        load_action.triggered.connect(self.open_file)
 
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
@@ -132,7 +119,7 @@ class App(QMainWindow):
 
         self.editor = LineNumberEditor()
         self.editor().textChanged.connect(self.editor_handler)
-        self.editor().document_dropped.connect(self.load_file)
+        self.editor().document_dropped.connect(self.open_file)
 
         self.preview = Browser()
 
@@ -141,26 +128,50 @@ class App(QMainWindow):
         splitter.addWidget(self.preview)
         splitter.setSizes([500, 900-500])
 
-        rt = QHBoxLayout()
-        rt.setContentsMargins(0, 0, 0, 0)
-        rt.addWidget(splitter)
-        window = QWidget()
-        window.setLayout(rt)
+        hbox = QHBoxLayout()
+        hbox.setContentsMargins(0, 0, 0, 0)
+        hbox.addWidget(splitter)
 
+        window = QWidget()
+        window.setLayout(hbox)
         self.setCentralWidget(window)
 
         self.load_welcome()
-
         self.init_menu()
-
         self.show()
+        self.center_screen()
 
+    def center_screen(self):
         fg = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         fg.moveCenter(cp)
         self.move(fg.topLeft())
 
-    def _set_changes_since_save(self, state):
+    def update_app_title(self):
+        if self.message:
+            self.setWindowTitle("{msg}{changes} | {title}".format(
+                msg=self.message,
+                title=self.app_title,
+                changes=" •" if self.changes_since_save else "")
+            )
+        else:
+            self.setWindowTitle(self.app_title)
+
+    def update_last_used(self, path):
+        if not path:
+            path = ""
+            self.message = "untitled"
+            self.update_app_title()
+        else:
+            self.message = path
+            self.update_app_title()
+            self.set_changes_since_save(False)
+
+        self.path = path
+        with open(self.last_used_file, 'w') as f:
+            print(path, file=f)
+
+    def set_changes_since_save(self, state):
         self.changes_since_save = state
         self.update_app_title()
 
@@ -173,7 +184,7 @@ class App(QMainWindow):
         return out
 
     def editor_handler(self):
-        self._set_changes_since_save(True)
+        self.set_changes_since_save(True)
 
         html_md = self.html_markdown(include_stylesheet=self.use_css)
 
@@ -182,42 +193,54 @@ class App(QMainWindow):
         else:
             self.preview.load_html(html.escape(html_md))
 
-    def new_file(self):
-        if self.changes_since_save:
-            proceed = QMessageBox.warning(
-                self, self.app_title, "Discard changes and open new file?", QMessageBox.Yes, QMessageBox.No)
-        else:
-            proceed = QMessageBox.Yes
+    def show_save_dialog(self):
+        msg = QMessageBox()
+        msg.setWindowIcon(self.app_icon)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Save Changes?")
+        msg.setText("{file} has been modified. Save changes?".format(file=self.message))
+        msg.addButton(QMessageBox.Yes)
+        msg.addButton(QMessageBox.No)
+        msg.addButton(QMessageBox.Cancel)
 
-        if proceed == QMessageBox.No:
-            return False
+        return msg.exec()
+
+    def new_file(self):
+        if  self.changes_since_save:
+            res = self.show_save_dialog()
+            if res == QMessageBox.Yes:
+                if not self.save_file():
+                    return False
+            elif res == QMessageBox.Cancel:
+                return False
 
         self.editor.editor.setPlainText("")
         self.update_last_used(None)
-
         return True
 
     @pyqtSlot(str)
     @pyqtSlot(bool)
-    def load_file(self, filename=None):
-        if self.changes_since_save:
-            proceed = QMessageBox.warning(
-                self, self.app_title, "Discard changes and open new file?", QMessageBox.Yes, QMessageBox.No)
-        else:
-            proceed = QMessageBox.Yes
-
-        if proceed == QMessageBox.No:
-            return False
+    def open_file(self, filename=None):
+        if  self.changes_since_save:
+            res = self.show_save_dialog()
+            if res == QMessageBox.Yes:
+                if not self.save_file():
+                    return False
+            elif res == QMessageBox.Cancel:
+                return False
 
         if filename:
-            self._load_file(filename)
+            self.open_file_helper(filename)
         else:
             filename, _ = QFileDialog.getOpenFileName(
                 self, "Open Markdown text file", "", "Text Files (*.txt;*.md);;All Files (*)")
             if filename:
-                self._load_file(filename)
+                self.open_file_helper(filename)
+                return True
 
-    def _load_file(self, filename):
+            return False
+
+    def open_file_helper(self, filename):
         if filename:
             with open(filename, 'r') as f:
                 data = f.read()
@@ -231,9 +254,11 @@ class App(QMainWindow):
                 print(self.editor.editor.toPlainText(), file=f)
 
             self.statusBar().showMessage("Saved {filename}".format(filename=self.path), 5000)
-            self._set_changes_since_save(False)
+            self.set_changes_since_save(False)
+
+            return True
         else:
-            self.save_as_file()
+            return self.save_as_file()
 
     def save_as_file(self):
         filename, sel_filter = QFileDialog.getSaveFileName(
@@ -245,6 +270,10 @@ class App(QMainWindow):
             self.update_last_used(filename)
             self.statusBar().showMessage("Saved {filename}".format(filename=filename), 5000)
 
+            return True
+
+        return False
+
     def export_file(self):
         filename, sel_filter = QFileDialog.getSaveFileName(self, "Export as...", "", "HTML File (*.html)")
         if filename:
@@ -252,6 +281,19 @@ class App(QMainWindow):
                 print(self.editor.html_markdown(), file=f)
 
             self.statusBar().showMessage("Exported {filename}".format(filename=filename), 5000)
+
+    def load_welcome(self):
+        if not self.path:
+            self.load_instructions()
+        else:
+            self.open_file_helper(self.path)
+
+        self.set_changes_since_save(False)
+
+    def load_instructions(self):
+        yes = self.new_file()
+        if yes:
+            self.editor.editor.setPlainText(welcome_text)
 
     def use_css_action_toggled(self, state):
         self.use_css = state
@@ -261,40 +303,20 @@ class App(QMainWindow):
         self.debug_mode = state
         self.editor_handler()
 
-    def load_welcome(self):
-        if not self.path:
-            self.load_instructions()
-        else:
-            self._load_file(self.path)
-
-        self._set_changes_since_save(False)
-
-    def load_instructions(self):
-        yes = self.new_file()
-        if yes:
-            self.editor.editor.setPlainText(welcome_text)
-
-    def update_app_title(self):
-        if self.message:
-            self.setWindowTitle("{msg}{changes} | {title}".format(
-                msg=self.message,
-                title=self.app_title,
-                changes=" •" if self.changes_since_save else "")
-            )
-        else:
-            self.setWindowTitle(self.app_title)
-
     def closeEvent(self, e):
         if not self.changes_since_save:
             e.accept()
             return
 
-        reply = QMessageBox.warning(
-            self, self.app_title, "You have unsaved changes, quit anyway?", QMessageBox.Yes, QMessageBox.No)
-
-        if reply == QMessageBox.Yes:
+        result = self.show_save_dialog()
+        if result == QMessageBox.Yes:
+            if self.save_file():
+                e.accept()
+            else:
+                e.ignore()
+        elif result == QMessageBox.No:
             e.accept()
-        else:
+        elif QMessageBox.Cancel:
             e.ignore()
 
     @staticmethod
