@@ -32,8 +32,8 @@ class Markdown:
         self.rules_cont.add_rule(r"\`(.*?)\`", self._html_code)
         self.rules_cont.add_rule(r"(?sm)(^(?:[*+-]|\d+\.)\s(.*?)(?:\n{2,}))", self._html_list)
         self.rules_cont.add_rule(r"(?s)\n\>\s(.*?)(?:$|\n{2,})", self._html_blockquote)
-        self.rules_cont.add_rule(r"\<(http.*?)\>", r"<a href=\1>\1</a>")
-
+        self.rules_cont.add_rule(r"\<(http.*?)\>", r"<a href='\1'>\1</a>")
+        self.rules_cont.add_rule(r"\[\[(.*?)\]\]", r"<a href='pmv://\1'>📁\1</a>")
         self.rules_cont.add_rule(r"(?s)(.*?[^\:\-\,])(?:$|\n{2,})", self._html_parag)
 
     def parse(self, text):

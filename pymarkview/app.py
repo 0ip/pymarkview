@@ -1,6 +1,4 @@
-import os.path
 import html
-
 
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -11,6 +9,7 @@ from pymarkview.ui.editor import LineNumberEditor
 from pymarkview.markdown.markdown import Markdown
 from pymarkview.resources.defaults import welcome_text, stylesheet
 
+from pathlib import Path
 
 class App(QMainWindow):
 
@@ -34,18 +33,19 @@ class App(QMainWindow):
         self.last_used_file = ".last_used"
         self.path = ""
 
-        if os.path.isfile(self.last_used_file):
+        if Path(self.last_used_file).exists():
             print("Found last_used file!")
             with open(self.last_used_file, 'r') as f:
                 last_path = f.read().strip()
                 print("Most recently used file: " + last_path)
                 if last_path:
-                    if os.path.isfile(last_path):
+                    if Path(last_path).exists():
                         print("Most recently used file still exists, loading...")
                         self.path = last_path
                     else:
                         print("Most recently used file does not exist anymore.")
         else:
+            print("Welcome to {title}!".format(title=self.app_title))
             open(self.last_used_file, 'a').close()
 
         # Init UI
@@ -122,6 +122,7 @@ class App(QMainWindow):
         self.editor().document_dropped.connect(self.open_file)
 
         self.preview = Browser()
+        self.preview.pmv_link_clicked.connect(lambda file: self.open_file(file, True))
 
         splitter = QSplitter(Qt.Horizontal)
         splitter.addWidget(self.editor)
@@ -220,7 +221,7 @@ class App(QMainWindow):
 
     @pyqtSlot(str)
     @pyqtSlot(bool)
-    def open_file(self, filename=None):
+    def open_file(self, filename=None, pmv_file=False):
         if  self.changes_since_save:
             res = self.show_save_dialog()
             if res == QMessageBox.Yes:
@@ -230,23 +231,30 @@ class App(QMainWindow):
                 return False
 
         if filename:
-            self.open_file_helper(filename)
+            self.open_file_helper(filename, pmv_file)
         else:
             filename, _ = QFileDialog.getOpenFileName(
                 self, "Open Markdown text file", "", "Text Files (*.txt;*.md);;All Files (*)")
             if filename:
-                self.open_file_helper(filename)
-                return True
+                return self.open_file_helper(filename)
 
             return False
 
-    def open_file_helper(self, filename):
-        if filename:
+    def open_file_helper(self, filename, pmv_file=False):
+        assert filename, "No file name provided!"
+
+        if pmv_file:
+            filename = str(Path(self.path).parent.joinpath(filename))
+
+        if Path(filename).exists():
             with open(filename, 'r') as f:
                 data = f.read()
                 self.editor.editor.setPlainText(data)
 
             self.update_last_used(filename)
+            return True
+        else:
+            return False
 
     def save_file(self):
         if self.path:
