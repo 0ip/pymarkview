@@ -1,5 +1,6 @@
 import html
 import sys
+import io
 
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -37,7 +38,7 @@ class App(QMainWindow):
 
         if Path(self.last_used_file).exists():
             print("Found last_used file!")
-            with open(self.last_used_file, 'r') as f:
+            with io.open(self.last_used_file, "r", encoding="utf-8") as f:
                 last_path = f.read().strip()
                 print("Most recently used file: " + last_path)
                 if last_path:
@@ -48,7 +49,7 @@ class App(QMainWindow):
                         print("Most recently used file does not exist anymore.")
         else:
             print("Welcome to {title}!".format(title=self.app_title))
-            open(self.last_used_file, 'a').close()
+            io.open(self.last_used_file, "a", encoding="utf-8").close()
 
         # Init UI
         self.init_ui()
@@ -56,62 +57,62 @@ class App(QMainWindow):
     def init_menu(self):
         new_action = QAction("&New File", self)
         new_action.setShortcut("Ctrl+N")
-        new_action.setStatusTip('Create a new document')
+        new_action.setStatusTip("Create a new document")
         new_action.triggered.connect(self.new_file)
 
         load_action = QAction("&Open File...", self)
         load_action.setShortcut("Ctrl+O")
-        load_action.setStatusTip('Load any text file in Markdown format')
+        load_action.setStatusTip("Load any text file in Markdown format")
         load_action.triggered.connect(self.open_file)
 
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
-        save_action.setStatusTip('Save current file')
+        save_action.setStatusTip("Save current file")
         save_action.triggered.connect(self.save_file)
 
         save_as_action = QAction("&Save As...", self)
         save_as_action.setShortcut("Ctrl+Shift+S")
-        save_as_action.setStatusTip('Export text file in selected format')
+        save_as_action.setStatusTip("Export text file in selected format")
         save_as_action.triggered.connect(self.save_as_file)
 
         export_action = QAction("Export As...", self)
-        export_action.setStatusTip('Export text file in selected format')
+        export_action.setStatusTip("Export text file in selected format")
         export_action.triggered.connect(self.export_file)
 
         line_wrapping_action = QAction("&Word Wrap", self, checkable=True, checked=True)
         line_wrapping_action.toggled.connect(lambda: self.editor().setLineWrapMode(line_wrapping_action.isChecked()))
 
-        hide_prev_action = QAction('&Show preview', self, checkable=True, checked=True)
+        hide_prev_action = QAction("&Show preview", self, checkable=True, checked=True)
         hide_prev_action.setShortcut("Ctrl+P")
         hide_prev_action.toggled.connect(lambda: self.preview.setVisible(hide_prev_action.isChecked()))
 
-        debug_action = QAction('&Enable debug mode', self,
+        debug_action = QAction("&Enable debug mode", self,
                                checkable=True, checked=False)
         debug_action.toggled.connect(self.debug_action_toggled)
 
-        use_css_action = QAction('&Use app stylesheet', self, checkable=True, checked=True)
+        use_css_action = QAction("&Use app stylesheet", self, checkable=True, checked=True)
         use_css_action.toggled.connect(self.use_css_action_toggled)
 
         inst_action = QAction("&Show instructions", self)
         inst_action.triggered.connect(self.load_instructions)
 
         menu_bar = self.menuBar()
-        menu = menu_bar.addMenu('&File')
+        menu = menu_bar.addMenu("&File")
         menu.addAction(new_action)
         menu.addAction(load_action)
         menu.addAction(save_action)
         menu.addAction(save_as_action)
         menu.addAction(export_action)
 
-        menu = menu_bar.addMenu('&Editor')
+        menu = menu_bar.addMenu("&Editor")
         menu.addAction(line_wrapping_action)
 
-        menu = menu_bar.addMenu('&Preview')
+        menu = menu_bar.addMenu("&Preview")
         menu.addAction(hide_prev_action)
         menu.addAction(use_css_action)
         menu.addAction(debug_action)
 
-        menu = menu_bar.addMenu('&Help')
+        menu = menu_bar.addMenu("&Help")
         menu.addAction(inst_action)
 
         self.statusBar()
@@ -171,8 +172,8 @@ class App(QMainWindow):
             self.set_changes_since_save(False)
 
         self.path = path
-        with open(self.last_used_file, 'w') as f:
-            print(path, file=f)
+        with io.open(self.last_used_file, "w", encoding="utf-8") as f:
+            f.write(path)
 
     def set_changes_since_save(self, state):
         self.changes_since_save = state
@@ -249,7 +250,7 @@ class App(QMainWindow):
             filename = str(Path(self.path).parent.joinpath(filename))
 
         if Path(filename).exists():
-            with open(filename, 'r') as f:
+            with io.open(filename, "r", encoding="utf-8") as f:
                 data = f.read()
                 self.editor.editor.setPlainText(data)
 
@@ -260,8 +261,8 @@ class App(QMainWindow):
 
     def save_file(self):
         if self.path:
-            with open(self.path, "w") as f:
-                print(self.editor.editor.toPlainText(), file=f)
+            with io.open(self.path, "w", encoding="utf-8") as f:
+                f.write(self.editor().toPlainText())
 
             self.statusBar().showMessage("Saved {filename}".format(filename=self.path), 5000)
             self.set_changes_since_save(False)
@@ -274,8 +275,8 @@ class App(QMainWindow):
         filename, sel_filter = QFileDialog.getSaveFileName(
             self, "Save as...", "", "Markdown File (*.md);;Text File (*.txt)")
         if filename:
-            with open(filename, "w") as f:
-                print(self.editor.editor.toPlainText(), file=f)
+            with io.open(filename, "w", encoding="utf-8") as f:
+                f.write(self.editor().toPlainText())
 
             self.update_last_used(filename)
             self.statusBar().showMessage("Saved {filename}".format(filename=filename), 5000)
@@ -287,8 +288,8 @@ class App(QMainWindow):
     def export_file(self):
         filename, sel_filter = QFileDialog.getSaveFileName(self, "Export as...", "", "HTML File (*.html)")
         if filename:
-            with open(filename, "w") as f:
-                print(self.editor.html_markdown(), file=f)
+            with io.open(filename, "w", encoding="utf-8") as f:
+                f.write(self.editor.html_markdown())
 
             self.statusBar().showMessage("Exported {filename}".format(filename=filename), 5000)
 
@@ -333,9 +334,11 @@ class App(QMainWindow):
     def convert_md_to_html(inp, out):
         md = Markdown()
 
-        with open(inp, "r") as i:
-            with open(out, "w") as o:
-                print(md.parse(i.read()), file=o)
+        with io.open(inp, "r", encoding="utf-8") as i:
+            with io.open(out, "w", encoding="utf-8") as o:
+                data = i.read()
+                parsed = md.parse(data)
+                o.write(parsed)
 
     def resource_path(self, relative_path):
         """ Get absolute path to PyInstaller resource """
