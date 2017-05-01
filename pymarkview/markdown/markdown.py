@@ -66,19 +66,47 @@ class Markdown:
         return "<pre lang='{lang}'>{text}</pre>".format(lang=lang, text=text)
 
     def _html_list(self, match_obj):
-        parents = (
-            "<ol>", "</ol>") if match_obj.group(1)[0].isdigit() else ("<ul>", "</ul>")
-        text = match_obj.group(2)
-        lines = text.split("\n")
+        outer_tags = lambda ch: ("<ol>", "</ol>")  if ch.isdigit() else \
+                                ("<ul>", "</ul>")
 
-        res = parents[0]
-        res += "<li>{text}</li>".format(text=lines[0].strip())
+        lines = (match_obj.group(1)[0] + " " + match_obj.group(2)).split("\n")
 
-        for line in lines[1:]:
-            res += "<li>{text}</li>".format(
-                text=line.strip().partition(" ")[2])
+        virt_list = {}
 
-        res += parents[1]
+        for number, line in enumerate(lines):
+            level = (len(line) - len(line.lstrip())) // 2
+            text = text=line.strip().partition(" ")[2]
+            virt_list.update(
+                {
+                    number: {
+                        "level": level,
+                        "text": text,
+                        "type": (line.lstrip()+"*")[0]
+                    }
+                }
+            )
+
+        res = outer_tags(match_obj.group(1)[0])[0]
+
+        for number in range(len(lines)):
+            current = virt_list.get(number)
+            successor = virt_list.get(number + 1, None)
+
+            res += "<li>{text}</li>".format(text=current["text"])
+
+            if successor:
+                level_delta = successor["level"] - current["level"]
+
+                if level_delta > 0:
+                    res += outer_tags(successor["type"])[0]
+                elif level_delta < 0:
+                    res += outer_tags(current["type"])[1] * abs(level_delta)
+
+            if not successor and current["level"] > 0:
+                res += outer_tags(current["type"])[1]
+
+        res += outer_tags(match_obj.group(1)[0])[1]
+
         return res
 
     def _html_parag(self, match_obj):
