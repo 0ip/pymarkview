@@ -27,7 +27,7 @@ class Markdown:
         self.rules_cont.add_rule(r"\[([^\[]+)\]\(([^\)]+)\)", r"<a href='\2'>\1</a>")
         self.rules_cont.add_rule(r"(\*\*|__)(.*?)\1", r"<strong>\2</strong>")
         self.rules_cont.add_rule(r"(\*|_)(.*?)\1", r"<em>\2</em>")
-        self.rules_cont.add_rule(r"\n`{3}([\S]+)?\n([\s\S]+)\n`{3}", self._html_pre)
+        self.rules_cont.add_rule(r"(?s)\n`{3}([\S]+)?\n(.*?)\n`{3}", self._html_pre)
         # self.rules_cont.add_rule(r"(?m)^((?:(?:[ ]{4}|\t).*(\n|$))+)", r"<pre>\1</pre>")
         self.rules_cont.add_rule(r"\`(.*?)\`", self._html_code)
         self.rules_cont.add_rule(r"(?sm)(^(?:[*+-]|\d+\.)\s(.*?)(?:\n{2,}))", self._html_list)
