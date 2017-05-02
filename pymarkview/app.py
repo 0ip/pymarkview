@@ -6,6 +6,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 
+from pymarkview.settings import Settings
 from pymarkview.ui.browser import Browser
 from pymarkview.ui.editor import LineNumberEditor
 from pymarkview.markdown.markdown import Markdown
@@ -26,7 +27,10 @@ class App(QMainWindow):
         self.setWindowTitle(self.app_title)
         self.setWindowIcon(self.app_icon)
 
-        # Init Settings
+        # Init settings
+        self.settings = Settings()
+
+        # Init state
         self.use_css = True
         self.debug_mode = False
 
@@ -50,6 +54,8 @@ class App(QMainWindow):
         else:
             print("Welcome to {title}!".format(title=self.app_title))
             io.open(self.last_used_file, "a", encoding="utf-8").close()
+
+        self.md = Markdown()
 
         # Init UI
         self.init_ui()
@@ -79,16 +85,20 @@ class App(QMainWindow):
         export_action.setStatusTip("Export text file in selected format")
         export_action.triggered.connect(self.export_file)
 
-        line_wrapping_action = QAction("&Word Wrap", self, checkable=True, checked=True)
+        line_wrapping_default = self.settings.word_wrap
+        self.editor().setLineWrapMode(line_wrapping_default)
+        line_wrapping_action = QAction("&Word Wrap", self, checkable=True, checked=line_wrapping_default)
         line_wrapping_action.toggled.connect(lambda: self.editor().setLineWrapMode(line_wrapping_action.isChecked()))
 
         hide_prev_action = QAction("&Show preview", self, checkable=True, checked=True)
         hide_prev_action.setShortcut("Ctrl+P")
         hide_prev_action.toggled.connect(lambda: self.preview.setVisible(hide_prev_action.isChecked()))
 
-        debug_action = QAction("&Enable debug mode", self,
-                               checkable=True, checked=False)
+        debug_action = QAction("&Enable debug mode", self, checkable=True, checked=False)
         debug_action.toggled.connect(self.debug_action_toggled)
+
+        settings_action = QAction("&Open settings", self)
+        settings_action.triggered.connect(self.load_settings)
 
         use_css_action = QAction("&Use app stylesheet", self, checkable=True, checked=True)
         use_css_action.toggled.connect(self.use_css_action_toggled)
@@ -112,15 +122,16 @@ class App(QMainWindow):
         menu.addAction(use_css_action)
         menu.addAction(debug_action)
 
+        menu = menu_bar.addMenu("&Settings")
+        menu.addAction(settings_action)
+
         menu = menu_bar.addMenu("&Help")
         menu.addAction(inst_action)
 
         self.statusBar()
 
     def init_ui(self):
-        self.md = Markdown()
-
-        self.editor = LineNumberEditor()
+        self.editor = LineNumberEditor(settings=self.settings)
         self.editor().textChanged.connect(self.editor_handler)
         self.editor().document_dropped.connect(self.open_file)
 
@@ -305,6 +316,9 @@ class App(QMainWindow):
         yes = self.new_file()
         if yes:
             self.editor.editor.setPlainText(welcome_text)
+
+    def load_settings(self):
+        self.open_file(self.settings.FILE)
 
     def use_css_action_toggled(self, state):
         self.use_css = state

@@ -8,10 +8,10 @@ from urllib.request import url2pathname
 
 class LineNumberEditor(QFrame):
 
-    def __init__(self, *args):
+    def __init__(self, settings, *args):
         QFrame.__init__(self, *args)
 
-        self.editor = self.Editor()
+        self.editor = self.Editor(settings)
         self.number_bar = self.NumberBar(self.editor)
 
         hbox = QHBoxLayout(self)
@@ -52,11 +52,11 @@ class LineNumberEditor(QFrame):
 
     class Editor(QPlainTextEdit):
 
-        TAB_WIDTH = 4
-
         document_dropped = pyqtSignal(str)
 
-        def __init__(self):
+        def __init__(self, settings):
+            self.settings = settings
+
             self.view = QPlainTextEdit.__init__(self)
             self.setFrameStyle(QFrame.NoFrame)
 
@@ -135,14 +135,14 @@ class LineNumberEditor(QFrame):
             if is_block:
                 cursor.movePosition(QTextCursor.StartOfLine)
 
-            cursor.insertText(" " * self.TAB_WIDTH)
+            cursor.insertText(" " * self.settings.tab_width)
 
         def unindent(self, cursor, is_block):
             cursor.movePosition(QTextCursor.StartOfLine)
 
             curr_line = cursor.block().text()
 
-            for char in curr_line[:self.TAB_WIDTH]:
+            for char in curr_line[:self.settings.tab_width]:
                 if char != " ":
                     break
 
