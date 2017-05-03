@@ -11,7 +11,8 @@ class Settings:
         "font_family": "Consolas",
         "font_size": 12,
         "tab_width": 2,
-        "word_wrap": True
+        "word_wrap": True,
+        "show_menu": True
     }
 
     def __init__(self):

@@ -1,4 +1,3 @@
-import html
 import sys
 import io
 
@@ -13,6 +12,7 @@ from pymarkview.markdown.markdown import Markdown
 from pymarkview.resources.defaults import welcome_text, stylesheet
 
 from pathlib import Path
+from html import escape
 
 
 class App(QMainWindow):
@@ -60,51 +60,102 @@ class App(QMainWindow):
         # Init UI
         self.init_ui()
 
+    def add_action(self, text, tip=None, shortcut=None, checkable=False, checked=False, function=None):
+        action = QAction(
+            text,
+            self,
+            shortcut=shortcut,
+            statusTip=tip,
+            checkable=checkable,
+            checked=checked
+        )
+
+        if function:
+            if checkable:
+                action.toggled.connect(function)
+                function(checked)
+            else:
+                action.triggered.connect(function)
+
+        if shortcut:
+            self.addAction(action)
+
+        return action
+
     def init_menu(self):
-        new_action = QAction("&New File", self)
-        new_action.setShortcut("Ctrl+N")
-        new_action.setStatusTip("Create a new document")
-        new_action.triggered.connect(self.new_file)
 
-        load_action = QAction("&Open File...", self)
-        load_action.setShortcut("Ctrl+O")
-        load_action.setStatusTip("Load any text file in Markdown format")
-        load_action.triggered.connect(self.open_file)
+        new_action = self.add_action(
+            text="&New File", tip="Create a new document",
+            shortcut=QKeySequence.New, function=self.new_file
+        )
 
-        save_action = QAction("&Save", self)
-        save_action.setShortcut("Ctrl+S")
-        save_action.setStatusTip("Save current file")
-        save_action.triggered.connect(self.save_file)
+        load_action = self.add_action(
+            text="&Open File", tip="Load any text file in Markdown format",
+            shortcut=QKeySequence.Open, function=self.open_file
+        )
 
-        save_as_action = QAction("&Save As...", self)
-        save_as_action.setShortcut("Ctrl+Shift+S")
-        save_as_action.setStatusTip("Export text file in selected format")
-        save_as_action.triggered.connect(self.save_as_file)
+        save_action = self.add_action(
+            text="&Save File", tip="Save current file",
+            shortcut=QKeySequence.Save, function=self.save_file
+        )
 
-        export_action = QAction("Export As...", self)
-        export_action.setStatusTip("Export text file in selected format")
-        export_action.triggered.connect(self.export_file)
+        save_as_action = self.add_action(
+            text="&Save As...", tip="Export text file in selected format",
+            shortcut=QKeySequence.SaveAs, function=self.save_as_file
+        )
 
-        line_wrapping_default = self.settings.word_wrap
-        self.editor().setLineWrapMode(line_wrapping_default)
-        line_wrapping_action = QAction("&Word Wrap", self, checkable=True, checked=line_wrapping_default)
-        line_wrapping_action.toggled.connect(lambda: self.editor().setLineWrapMode(line_wrapping_action.isChecked()))
+        export_action = self.add_action(
+            text="&Export As...", tip="Export text file in selected format",
+            shortcut=QKeySequence.SaveAs, function=self.export_file
+        )
 
-        hide_prev_action = QAction("&Show preview", self, checkable=True, checked=True)
-        hide_prev_action.setShortcut("Ctrl+P")
-        hide_prev_action.toggled.connect(lambda: self.preview.setVisible(hide_prev_action.isChecked()))
+        quit_action = self.add_action(
+            text="&Exit",
+            shortcut=QKeySequence.Quit, function=self.close
+        )
 
-        debug_action = QAction("&Enable debug mode", self, checkable=True, checked=False)
-        debug_action.toggled.connect(self.debug_action_toggled)
+        self.line_wrapping_action = self.add_action(
+            "&Word Wrap",
+            checkable=True, checked=self.settings.word_wrap,
+            shortcut="Ctrl+W",
+            function=lambda state: self.editor().setLineWrapMode(state)
+        )
 
-        settings_action = QAction("&Open settings", self)
-        settings_action.triggered.connect(self.load_settings)
+        self.show_menu_action = self.add_action(
+            "&Show Menu", tip="Can be opened temporarily with Alt key",
+            checkable=True, checked=self.settings.show_menu,
+            shortcut="Ctrl+M",
+            function=lambda state: self.menuBar().setVisible(state)
+        )
 
-        use_css_action = QAction("&Use app stylesheet", self, checkable=True, checked=True)
-        use_css_action.toggled.connect(self.use_css_action_toggled)
+        show_prev_action = self.add_action(
+            "&Show Preview",
+            checkable=True, checked=True,
+            shortcut="Ctrl+P",
+            function=lambda state: self.preview.setVisible(state)
+        )
 
-        inst_action = QAction("&Show instructions", self)
-        inst_action.triggered.connect(self.load_instructions)
+        debug_action = self.add_action(
+            "&Enable Debug Mode",
+            checkable=True, checked=False,
+            function=self.debug_action_toggled
+        )
+
+        settings_action = self.add_action(
+            "&Open Settings",
+            function=self.load_settings
+        )
+
+        use_css_action = self.add_action(
+            "&Use App Stylesheet",
+            checkable=True, checked=True,
+            function=self.use_css_action_toggled
+        )
+
+        inst_action = self.add_action(
+            "&Show instructions",
+            function=self.load_instructions
+        )
 
         menu_bar = self.menuBar()
         menu = menu_bar.addMenu("&File")
@@ -113,12 +164,14 @@ class App(QMainWindow):
         menu.addAction(save_action)
         menu.addAction(save_as_action)
         menu.addAction(export_action)
+        menu.addAction(quit_action)
 
         menu = menu_bar.addMenu("&Editor")
-        menu.addAction(line_wrapping_action)
+        menu.addAction(self.line_wrapping_action)
+        menu.addAction(self.show_menu_action)
 
         menu = menu_bar.addMenu("&Preview")
-        menu.addAction(hide_prev_action)
+        menu.addAction(show_prev_action)
         menu.addAction(use_css_action)
         menu.addAction(debug_action)
 
@@ -153,6 +206,9 @@ class App(QMainWindow):
 
         self.load_welcome()
         self.init_menu()
+
+        self.app.installEventFilter(self)
+
         self.show()
         self.center_screen()
 
@@ -198,15 +254,16 @@ class App(QMainWindow):
 
         return out
 
-    def editor_handler(self):
-        self.set_changes_since_save(True)
+    def editor_handler(self, refresh=False):
+        if not refresh:
+            self.set_changes_since_save(True)
 
         html_md = self.html_markdown(include_stylesheet=self.use_css)
 
         if not self.debug_mode:
             self.preview.load_html(html_md)
         else:
-            self.preview.load_html(html.escape(html_md))
+            self.preview.load_html(escape(html_md))
 
     def show_save_dialog(self):
         msg = QMessageBox()
@@ -322,11 +379,26 @@ class App(QMainWindow):
 
     def use_css_action_toggled(self, state):
         self.use_css = state
-        self.editor_handler()
+        self.editor_handler(refresh=True)
 
     def debug_action_toggled(self, state):
         self.debug_mode = state
-        self.editor_handler()
+        self.editor_handler(refresh=True)
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Alt:
+            self.menuBar().setVisible(True)
+
+        super().keyPressEvent(e)
+
+    def eventFilter(self, source, event):
+        if self.app.activePopupWidget() is None and not self.show_menu_action.isChecked():
+            if event.type() == QEvent.MouseButtonPress:
+                if not self.menuBar().isHidden():
+                    rect = QRect(self.menuBar().mapToGlobal(QPoint(0, 0)), self.menuBar().size())
+                    if not rect.contains(event.globalPos()):
+                        self.menuBar().hide()
+        return QMainWindow.eventFilter(self, source, event)
 
     def closeEvent(self, e):
         if not self.changes_since_save:
@@ -354,7 +426,8 @@ class App(QMainWindow):
                 parsed = md.parse(data)
                 o.write(parsed)
 
-    def resource_path(self, relative_path):
+    @staticmethod
+    def resource_path(relative_path):
         """ Get absolute path to PyInstaller resource """
         try:
             return str(Path(sys._MEIPASS).joinpath(Path(relative_path).name))
