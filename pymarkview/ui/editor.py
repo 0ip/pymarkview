@@ -61,10 +61,10 @@ class LineNumberEditor(QFrame):
             self.setFrameStyle(QFrame.NoFrame)
 
             self.font = QFont()
-            self.font.setFamily('Consolas')
             self.font.setStyleHint(QFont.Monospace)
             self.font.setFixedPitch(True)
-            self.font.setPointSize(10)
+            self.font.setFamily(self.settings.font_family)
+            self.font.setPointSize(self.settings.font_size)
             self.setFont(self.font)
 
             self.cursorPositionChanged.connect(self.highlight)
