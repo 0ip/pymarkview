@@ -10,7 +10,7 @@ PyMarkView serves as a PyQt learning project. Only a Markdown subset is currentl
 ## 
 
 <p align="center">
-  <img alt="PyMarkView screenshot" width="60%" src="https://factor.cc/pmv/screen.jpg">
+  <img alt="PyMarkView screenshot" width="60%" src="https://factor.cc/pmv/screen.jpg?2">
 </p>
 
 ## Installation
