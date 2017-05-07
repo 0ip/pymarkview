@@ -9,46 +9,48 @@ from urllib.request import url2pathname
 class LineNumberEditor(QFrame):
 
     def __init__(self, settings, *args):
-        QFrame.__init__(self, *args)
+        super().__init__(*args)
 
-        self.editor = self.Editor(settings)
-        self.number_bar = self.NumberBar(self.editor)
+        self._editor = self.Editor(settings)
+        self._editor.setPlainText("")
+        self.number_bar = self.NumberBar(self._editor)
 
         hbox = QHBoxLayout(self)
         hbox.setSpacing(0)
         hbox.setContentsMargins(0, 0, 0, 0)
         hbox.addWidget(self.number_bar)
-        hbox.addWidget(self.editor)
+        hbox.addWidget(self._editor)
 
-        self.editor.blockCountChanged.connect(self.number_bar.adjustWidth)
-        self.editor.updateRequest.connect(self.number_bar.updateContents)
+        self._editor.blockCountChanged.connect(self.number_bar.adjust_width)
+        self._editor.updateRequest.connect(self.number_bar.update_contents)
 
-    def __call__(self):
-        return self.editor
+    @property
+    def editor(self):
+        return self._editor
 
     class NumberBar(QWidget):
         WIDTH_OFFSET = 10
 
-        def __init__(self, editor):
-            QWidget.__init__(self, editor)
+        def __init__(self, editor, *args):
+            super().__init__(*args)
 
-            self.editor = editor
-            self.adjustWidth(1)
+            self._editor = editor
+            self.adjust_width(1)
 
-        def paintEvent(self, event):
-            self.editor.numberbar_paint(self, event)
-            QWidget.paintEvent(self, event)
-
-        def adjustWidth(self, count):
+        def adjust_width(self, count):
             width = self.fontMetrics().width(str(count)) + self.WIDTH_OFFSET
             if self.width() != width:
                 self.setFixedWidth(width)
 
-        def updateContents(self, rect, scroll):
+        def update_contents(self, rect, scroll):
             if scroll:
                 self.scroll(0, scroll)
             else:
                 self.update()
+
+        def paintEvent(self, event):
+            self._editor.numberbar_paint(self, event)
+            QWidget.paintEvent(self, event)
 
     class Editor(QPlainTextEdit):
 
@@ -98,8 +100,7 @@ class LineNumberEditor(QFrame):
             hi_selection = QTextEdit.ExtraSelection()
 
             hi_selection.format.setBackground(self.palette().alternateBase())
-            hi_selection.format.setProperty(
-                QTextFormat.FullWidthSelection, QVariant(True))
+            hi_selection.format.setProperty(QTextFormat.FullWidthSelection, QVariant(True))
             hi_selection.cursor = self.textCursor()
             hi_selection.cursor.clearSelection()
 

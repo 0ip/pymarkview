@@ -1,4 +1,3 @@
-import sys
 import io
 
 from PyQt5.QtCore import *
@@ -8,21 +7,21 @@ from PyQt5.QtGui import *
 from pymarkview.settings import Settings
 from pymarkview.ui.browser import Browser
 from pymarkview.ui.editor import LineNumberEditor
+from pymarkview.ui.tabbed_editor import TabbedEditor
 from pymarkview.markdown.markdown import Markdown
-from pymarkview.resources.defaults import welcome_text, stylesheet
+from pymarkview.resources.defaults import stylesheet, mathjax
+from pymarkview.util import resource_path
 
-from pathlib import Path
 from html import escape
 
 
 class App(QMainWindow):
-
-    def __init__(self, app):
-        super().__init__()
+    def __init__(self, app, *args):
+        super().__init__(*args)
 
         self.app = app
         self.app_title = "PyMarkView"
-        self.app_icon = QIcon(self.resource_path("pymarkview/resources/icon.ico"))
+        self.app_icon = QIcon(resource_path("pymarkview/resources/icon.ico"))
 
         self.setWindowTitle(self.app_title)
         self.setWindowIcon(self.app_icon)
@@ -32,28 +31,8 @@ class App(QMainWindow):
 
         # Init state
         self.use_css = True
+        self.use_mathjax = False
         self.debug_mode = False
-
-        self.message = ""
-        self.changes_since_save = False
-
-        self.last_used_file = ".last_used"
-        self.path = ""
-
-        if Path(self.last_used_file).exists():
-            print("Found last_used file!")
-            with io.open(self.last_used_file, "r", encoding="utf-8") as f:
-                last_path = f.read().strip()
-                print("Most recently used file: " + last_path)
-                if last_path:
-                    if Path(last_path).exists():
-                        print("Most recently used file still exists, loading...")
-                        self.path = last_path
-                    else:
-                        print("Most recently used file does not exist anymore.")
-        else:
-            print("Welcome to {title}!".format(title=self.app_title))
-            io.open(self.last_used_file, "a", encoding="utf-8").close()
 
         self.md = Markdown()
 
@@ -86,22 +65,22 @@ class App(QMainWindow):
 
         new_action = self.add_action(
             text="&New File", tip="Create a new document",
-            shortcut=QKeySequence.New, function=self.new_file
+            shortcut=QKeySequence.New, function=self.tabbed_editor.new_tab
         )
 
         load_action = self.add_action(
             text="&Open File", tip="Load any text file in Markdown format",
-            shortcut=QKeySequence.Open, function=self.open_file
+            shortcut=QKeySequence.Open, function=self.tabbed_editor.open_file
         )
 
         save_action = self.add_action(
-            text="&Save File", tip="Save current file",
-            shortcut=QKeySequence.Save, function=self.save_file
+            text="&Save", tip="Save current file",
+            shortcut=QKeySequence.Save, function=self.tabbed_editor.save_file
         )
 
         save_as_action = self.add_action(
             text="&Save As...", tip="Export text file in selected format",
-            shortcut=QKeySequence.SaveAs, function=self.save_as_file
+            shortcut=QKeySequence.SaveAs, function=self.tabbed_editor.save_as_file
         )
 
         export_action = self.add_action(
@@ -114,11 +93,11 @@ class App(QMainWindow):
             shortcut=QKeySequence.Quit, function=self.close
         )
 
-        self.line_wrapping_action = self.add_action(
+        line_wrapping_action = self.add_action(
             "&Word Wrap",
             checkable=True, checked=self.settings.word_wrap,
             shortcut="Ctrl+W",
-            function=lambda state: self.editor().setLineWrapMode(state)
+            function=lambda state: self.tabbed_editor.current_editor.setLineWrapMode(state)
         )
 
         self.show_menu_action = self.add_action(
@@ -143,18 +122,24 @@ class App(QMainWindow):
 
         settings_action = self.add_action(
             "&Open Settings",
-            function=self.load_settings
+            function=lambda: self.tabbed_editor.open_file(self.settings.FILE)
         )
 
         use_css_action = self.add_action(
             "&Use App Stylesheet",
-            checkable=True, checked=True,
+            checkable=True, checked=self.use_css,
             function=self.use_css_action_toggled
+        )
+
+        use_mathjax_action = self.add_action(
+            "&Use MathJax",
+            checkable=True, checked=self.use_mathjax,
+            function=self.use_mathjax_action_toggled
         )
 
         inst_action = self.add_action(
             "&Show instructions",
-            function=self.load_instructions
+            function=self.tabbed_editor.load_instructions
         )
 
         menu_bar = self.menuBar()
@@ -167,12 +152,13 @@ class App(QMainWindow):
         menu.addAction(quit_action)
 
         menu = menu_bar.addMenu("&Editor")
-        menu.addAction(self.line_wrapping_action)
+        menu.addAction(line_wrapping_action)
         menu.addAction(self.show_menu_action)
 
         menu = menu_bar.addMenu("&Preview")
         menu.addAction(show_prev_action)
         menu.addAction(use_css_action)
+        menu.addAction(use_mathjax_action)
         menu.addAction(debug_action)
 
         menu = menu_bar.addMenu("&Settings")
@@ -184,17 +170,19 @@ class App(QMainWindow):
         self.statusBar()
 
     def init_ui(self):
-        self.editor = LineNumberEditor(settings=self.settings)
-        self.editor().textChanged.connect(self.editor_handler)
-        self.editor().document_dropped.connect(self.open_file)
+        self.tabbed_editor = TabbedEditor(self, LineNumberEditor, self.settings)
+        self.tabbed_editor.text_changed.connect(self.update_preview)
+        self.tabbed_editor.tab_changed.connect(self.handle_tab_changed)
+        self.tabbed_editor.tab_title_changed.connect(self.update_app_title)
+        self.tabbed_editor.file_saved.connect(self.handle_file_saved)
 
         self.preview = Browser()
-        self.preview.pmv_link_clicked.connect(lambda file: self.open_file(file, True))
+        self.preview.pmv_link_clicked.connect(lambda file: self.tabbed_editor.open_file(file, True))
 
         splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(self.editor)
+        splitter.addWidget(self.tabbed_editor)
         splitter.addWidget(self.preview)
-        splitter.setSizes([500, 900-500])
+        splitter.setSizes([500, 900 - 500])
 
         hbox = QHBoxLayout()
         hbox.setContentsMargins(0, 0, 0, 0)
@@ -204,7 +192,6 @@ class App(QMainWindow):
         window.setLayout(hbox)
         self.setCentralWidget(window)
 
-        self.load_welcome()
         self.init_menu()
 
         self.app.installEventFilter(self)
@@ -218,172 +205,68 @@ class App(QMainWindow):
         fg.moveCenter(cp)
         self.move(fg.topLeft())
 
-    def update_app_title(self):
-        if self.message:
-            self.setWindowTitle("{msg}{changes} | {title}".format(
-                msg=self.message,
+    @pyqtSlot(str)
+    def update_app_title(self, message=None):
+        if message:
+            self.setWindowTitle("{msg} | {title}".format(
+                msg=message,
                 title=self.app_title,
-                changes=" •" if self.changes_since_save else "")
+                )
             )
         else:
             self.setWindowTitle(self.app_title)
 
-    def update_last_used(self, path):
-        if not path:
-            path = ""
-            self.message = "untitled"
-            self.update_app_title()
-        else:
-            self.message = path
-            self.update_app_title()
-            self.set_changes_since_save(False)
-
-        self.path = path
-        with io.open(self.last_used_file, "w", encoding="utf-8") as f:
-            f.write(path)
-
-    def set_changes_since_save(self, state):
-        self.changes_since_save = state
-        self.update_app_title()
-
-    def html_markdown(self, include_stylesheet=False):
-        out = self.md.parse(self.editor().toPlainText())
+    def html_markdown(self, include_stylesheet=False, include_mathjax=False):
+        text = self.tabbed_editor.get_text()
+        out = self.md.parse(text)
 
         if include_stylesheet:
-            return out + stylesheet
+            out += stylesheet
+
+        if include_mathjax:
+            out += mathjax
 
         return out
 
-    def editor_handler(self, refresh=False):
-        if not refresh:
-            self.set_changes_since_save(True)
-
-        html_md = self.html_markdown(include_stylesheet=self.use_css)
+    def update_preview(self):
+        html_md = self.html_markdown(include_stylesheet=self.use_css, include_mathjax=self.use_mathjax)
 
         if not self.debug_mode:
             self.preview.load_html(html_md)
         else:
             self.preview.load_html(escape(html_md))
 
-    def show_save_dialog(self):
-        msg = QMessageBox()
-        msg.setWindowIcon(self.app_icon)
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Save Changes?")
-        msg.setText("{file} has been modified. Save changes?".format(file=self.message))
-        msg.addButton(QMessageBox.Yes)
-        msg.addButton(QMessageBox.No)
-        msg.addButton(QMessageBox.Cancel)
-
-        return msg.exec()
-
-    def new_file(self):
-        if  self.changes_since_save:
-            res = self.show_save_dialog()
-            if res == QMessageBox.Yes:
-                if not self.save_file():
-                    return False
-            elif res == QMessageBox.Cancel:
-                return False
-
-        self.editor.editor.setPlainText("")
-        self.update_last_used(None)
-        return True
-
-    @pyqtSlot(str)
-    @pyqtSlot(bool)
-    def open_file(self, filename=None, pmv_file=False):
-        if  self.changes_since_save:
-            res = self.show_save_dialog()
-            if res == QMessageBox.Yes:
-                if not self.save_file():
-                    return False
-            elif res == QMessageBox.Cancel:
-                return False
-
-        if filename:
-            self.open_file_helper(filename, pmv_file)
-        else:
-            filename, _ = QFileDialog.getOpenFileName(
-                self, "Open Markdown text file", "", "Text Files (*.txt;*.md);;All Files (*)")
-            if filename:
-                return self.open_file_helper(filename)
-
-            return False
-
-    def open_file_helper(self, filename, pmv_file=False):
-        assert filename, "No file name provided!"
-
-        if pmv_file:
-            filename = str(Path(self.path).parent.joinpath(filename))
-
-        if Path(filename).exists():
-            with io.open(filename, "r", encoding="utf-8") as f:
-                data = f.read()
-                self.editor.editor.setPlainText(data)
-
-            self.update_last_used(filename)
-            return True
-        else:
-            return False
-
-    def save_file(self):
-        if self.path:
-            with io.open(self.path, "w", encoding="utf-8") as f:
-                f.write(self.editor().toPlainText())
-
-            self.statusBar().showMessage("Saved {filename}".format(filename=self.path), 5000)
-            self.set_changes_since_save(False)
-
-            return True
-        else:
-            return self.save_as_file()
-
-    def save_as_file(self):
-        filename, sel_filter = QFileDialog.getSaveFileName(
-            self, "Save as...", "", "Markdown File (*.md);;Text File (*.txt)")
-        if filename:
-            with io.open(filename, "w", encoding="utf-8") as f:
-                f.write(self.editor().toPlainText())
-
-            self.update_last_used(filename)
-            self.statusBar().showMessage("Saved {filename}".format(filename=filename), 5000)
-
-            return True
-
-        return False
-
     def export_file(self):
         filename, sel_filter = QFileDialog.getSaveFileName(self, "Export as...", "", "HTML File (*.html)")
         if filename:
             with io.open(filename, "w", encoding="utf-8") as f:
-                f.write(self.editor.html_markdown())
+                f.write(self.html_markdown())
 
             self.statusBar().showMessage("Exported {filename}".format(filename=filename), 5000)
 
-    def load_welcome(self):
-        if not self.path:
-            self.load_instructions()
-        else:
-            self.open_file_helper(self.path)
-
-        self.set_changes_since_save(False)
-
-    def load_instructions(self):
-        yes = self.new_file()
-        if yes:
-            self.editor.editor.setPlainText(welcome_text)
-
-    def load_settings(self):
-        self.open_file(self.settings.FILE)
-
     def use_css_action_toggled(self, state):
         self.use_css = state
-        self.editor_handler(refresh=True)
+        self.update_preview()
+
+    def use_mathjax_action_toggled(self, state):
+        self.preview.enable_javascript(state)
+        self.use_mathjax = state
+        self.update_preview()
 
     def debug_action_toggled(self, state):
         self.debug_mode = state
-        self.editor_handler(refresh=True)
+        self.update_preview()
+
+    @pyqtSlot(str)
+    def handle_file_saved(self, path):
+        self.statusBar().showMessage("Saved {filename}".format(filename=path), 5000)
+
+    def handle_tab_changed(self):
+        self.update_preview()
+        self.update_app_title(self.tabbed_editor.get_filename())
+
+    def closeEvent(self, event):
+        self.tabbed_editor.save_state()
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Alt:
@@ -400,22 +283,6 @@ class App(QMainWindow):
                         self.menuBar().hide()
         return QMainWindow.eventFilter(self, source, event)
 
-    def closeEvent(self, e):
-        if not self.changes_since_save:
-            e.accept()
-            return
-
-        result = self.show_save_dialog()
-        if result == QMessageBox.Yes:
-            if self.save_file():
-                e.accept()
-            else:
-                e.ignore()
-        elif result == QMessageBox.No:
-            e.accept()
-        elif QMessageBox.Cancel:
-            e.ignore()
-
     @staticmethod
     def convert_md_to_html(inp, out):
         md = Markdown()
@@ -425,11 +292,3 @@ class App(QMainWindow):
                 data = i.read()
                 parsed = md.parse(data)
                 o.write(parsed)
-
-    @staticmethod
-    def resource_path(relative_path):
-        """ Get absolute path to PyInstaller resource """
-        try:
-            return str(Path(sys._MEIPASS).joinpath(Path(relative_path).name))
-        except Exception:
-            return relative_path

@@ -23,6 +23,9 @@ class Browser(QWebView):
     def load_url(self, url):
         self.setUrl(QUrl(url))
 
+    def enable_javascript(self, state):
+        self.settings().setAttribute(QWebSettings.JavascriptEnabled, state)
+
     def handle_link_click(self, url):
         url = url.toString()
         if not url.startswith(self.PMV_LINK_PREFIX):
