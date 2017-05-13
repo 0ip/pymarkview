@@ -177,7 +177,7 @@ class TabbedEditor(QTabWidget):
                     return False
 
         if Path(path).exists():
-            with io.open(path, "r", encoding="utf-8") as f:
+            with io.open(path, "r", encoding="utf-8", errors="replace") as f:
                 data = f.read()
 
             tab_index = self.new_tab(append=True)
