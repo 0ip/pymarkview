@@ -16,6 +16,8 @@ class Browser(QWebView):
         self.linkClicked.connect(self.handle_link_click)
         self.page().setLinkDelegationPolicy(QWebPage.DelegateAllLinks)
         self.settings().setAttribute(QWebSettings.JavascriptEnabled, False)
+        self.loadStarted.connect(self.handle_load_started)
+        self.loadFinished.connect(self.handle_load_finished)
 
     def load_html(self, html):
         self.setHtml(html)
@@ -25,6 +27,12 @@ class Browser(QWebView):
 
     def enable_javascript(self, state):
         self.settings().setAttribute(QWebSettings.JavascriptEnabled, state)
+
+    def handle_load_started(self):
+        self.scroll_position = self.page().mainFrame().scrollPosition()
+
+    def handle_load_finished(self):
+        self.page().mainFrame().setScrollPosition(self.scroll_position)
 
     def handle_link_click(self, url):
         url = url.toString()
