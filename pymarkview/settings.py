@@ -12,7 +12,8 @@ class Settings:
         "font_size": 12,
         "tab_width": 2,
         "word_wrap": True,
-        "show_menu": True
+        "show_menu": True,
+        "md_parser": "markdown2"
     }
 
     def __init__(self):

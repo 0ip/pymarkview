@@ -8,7 +8,7 @@ from pymarkview.settings import Settings
 from pymarkview.ui.browser import Browser
 from pymarkview.ui.editor import LineNumberEditor
 from pymarkview.ui.tabbed_editor import TabbedEditor
-from pymarkview.markdown.markdown import Markdown
+
 from pymarkview.resources.defaults import stylesheet, mathjax
 from pymarkview.util import resource_path
 
@@ -30,11 +30,27 @@ class App(QMainWindow):
         self.settings = Settings()
 
         # Init state
-        self.use_css = True
-        self.use_mathjax = False
-        self.debug_mode = False
+        self.state = {
+            "use_css": True,
+            "use_mathjax": False,
+            "debug_mode": False
+        }
 
-        self.md = Markdown()
+        # Select and inizialize MD parser
+        if self.settings.md_parser == "internal":
+            from pymarkview.markdown.markdown import Markdown
+            md = Markdown()
+            self.md = md.parse
+        elif self.settings.md_parser == "markdown2":
+            from markdown2 import Markdown
+            md = Markdown(extras=["fenced-code-blocks", "cuddled-lists", "code-friendly"])
+            self.md = md.convert
+        else:
+            raise Exception("No Markdown parser selected!")
+
+        self.type_delay_tmr = QTimer()
+        self.type_delay_tmr.setSingleShot(True)
+        self.type_delay_tmr.timeout.connect(self.update_preview)
 
         # Init UI
         self.init_ui()
@@ -127,13 +143,13 @@ class App(QMainWindow):
 
         use_css_action = self.add_action(
             "&Use App Stylesheet",
-            checkable=True, checked=self.use_css,
+            checkable=True, checked=self.state["use_css"],
             function=self.use_css_action_toggled
         )
 
         use_mathjax_action = self.add_action(
             "&Use MathJax",
-            checkable=True, checked=self.use_mathjax,
+            checkable=True, checked=self.state["use_mathjax"],
             function=self.use_mathjax_action_toggled
         )
 
@@ -171,7 +187,7 @@ class App(QMainWindow):
 
     def init_ui(self):
         self.tabbed_editor = TabbedEditor(self, LineNumberEditor, self.settings)
-        self.tabbed_editor.text_changed.connect(self.update_preview)
+        self.tabbed_editor.text_changed.connect(self.handle_text_changed)
         self.tabbed_editor.tab_changed.connect(self.handle_tab_changed)
         self.tabbed_editor.tab_title_changed.connect(self.update_app_title)
         self.tabbed_editor.file_saved.connect(self.handle_file_saved)
@@ -218,7 +234,7 @@ class App(QMainWindow):
 
     def html_markdown(self, include_stylesheet=False, include_mathjax=False):
         text = self.tabbed_editor.get_text()
-        out = self.md.parse(text)
+        out = self.md(text)
 
         if include_stylesheet:
             out += stylesheet
@@ -229,9 +245,9 @@ class App(QMainWindow):
         return out
 
     def update_preview(self):
-        html_md = self.html_markdown(include_stylesheet=self.use_css, include_mathjax=self.use_mathjax)
+        html_md = self.html_markdown(include_stylesheet=self.state["use_css"], include_mathjax=self.state["use_mathjax"])
 
-        if not self.debug_mode:
+        if not self.state["debug_mode"]:
             self.preview.load_html(html_md)
         else:
             self.preview.load_html(escape(html_md))
@@ -245,21 +261,24 @@ class App(QMainWindow):
             self.statusBar().showMessage("Exported {filename}".format(filename=filename), 5000)
 
     def use_css_action_toggled(self, state):
-        self.use_css = state
+        self.state["use_css"] = state
         self.update_preview()
 
     def use_mathjax_action_toggled(self, state):
         self.preview.enable_javascript(state)
-        self.use_mathjax = state
+        self.state["use_mathjax"] = state
         self.update_preview()
 
     def debug_action_toggled(self, state):
-        self.debug_mode = state
+        self.state["debug_mode"] = state
         self.update_preview()
 
     @pyqtSlot(str)
     def handle_file_saved(self, path):
         self.statusBar().showMessage("Saved {filename}".format(filename=path), 5000)
+
+    def handle_text_changed(self):
+        self.type_delay_tmr.start(500)
 
     def handle_tab_changed(self):
         self.update_preview()
