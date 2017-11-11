@@ -16,6 +16,7 @@ from html import escape
 
 
 class App(QMainWindow):
+
     def __init__(self, app, *args):
         super().__init__(*args)
 
@@ -32,7 +33,7 @@ class App(QMainWindow):
         # Init state
         self.state = {
             "use_css": True,
-            "use_mathjax": False,
+            "use_mathjax": self.settings.mathjax,
             "debug_mode": False
         }
 
@@ -227,7 +228,7 @@ class App(QMainWindow):
             self.setWindowTitle("{msg} | {title}".format(
                 msg=message,
                 title=self.app_title,
-                )
+            )
             )
         else:
             self.setWindowTitle(self.app_title)
@@ -245,7 +246,8 @@ class App(QMainWindow):
         return out
 
     def update_preview(self):
-        html_md = self.html_markdown(include_stylesheet=self.state["use_css"], include_mathjax=self.state["use_mathjax"])
+        html_md = self.html_markdown(include_stylesheet=self.state[
+                                     "use_css"], include_mathjax=self.state["use_mathjax"])
 
         if not self.state["debug_mode"]:
             self.preview.load_html(html_md)
@@ -253,7 +255,8 @@ class App(QMainWindow):
             self.preview.load_html(escape(html_md))
 
     def export_file(self):
-        filename, sel_filter = QFileDialog.getSaveFileName(self, "Export as...", "", "HTML File (*.html)")
+        filename, sel_filter = QFileDialog.getSaveFileName(
+            self, "Export as...", "", "HTML File (*.html)")
         if filename:
             with io.open(filename, "w", encoding="utf-8") as f:
                 f.write(self.html_markdown())

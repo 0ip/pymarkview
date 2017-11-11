@@ -1,21 +1,21 @@
 import html
 import re
 from collections import OrderedDict
+from typing import Union, Callable
 
 
 class Markdown:
-
     class RuleSetContainer:
-
         def __init__(self):
-            self.rules = OrderedDict()
+            self._rules = OrderedDict()
 
         def __call__(self):
-            return self.rules.items()
+            return self._rules.items()
 
-        def add_rule(self, rule, repl):
+        def add_rule(self, rule: str, repl: Union[str, Callable[[str], str]]):
+            print(type(repl))
             key = re.compile(rule)
-            self.rules[key] = repl
+            self._rules[key] = repl
 
     def __init__(self):
         self.rules_cont = Markdown.RuleSetContainer()
@@ -37,7 +37,7 @@ class Markdown:
         self.rules_cont.add_rule(r"\[\[(.*?)\]\]", r"<a href='pmv://\1'>📁\1</a>")
         self.rules_cont.add_rule(r"(?s)(.*?[^\:\-\,])(?:$|\n{2,})", self._html_parag)
 
-    def parse(self, text):
+    def parse(self, text: str) -> str:
         text = "\n{}\n\n".format(text)
 
         for rule, repl in self.rules_cont():
@@ -45,30 +45,30 @@ class Markdown:
 
         return text
 
-    def _html_header(self, match_obj):
+    def _html_header(self, match_obj) -> str:
         level = min(match_obj.group(1).count('#'), 6)
         text = match_obj.group(2)
         return "<h{level}>{text}</h{level}>".format(level=level, text=text)
 
-    def _html_header_alt(self, match_obj):
+    def _html_header_alt(self, match_obj) -> str:
         level = 1 if match_obj.group(2)[0] == "=" else 2
         text = match_obj.group(1)
         return "<h{level} class='alt'>{text}</h{level}>".format(level=level, text=text)
 
-    def _html_code(self, match_obj):
+    def _html_code(self, match_obj) -> str:
         text = html.escape(match_obj.group(1))
 
         return "<code>{text}</code>".format(text=text)
 
-    def _html_pre(self, match_obj):
+    def _html_pre(self, match_obj) -> str:
         lang = match_obj.group(1)
         text = html.escape(match_obj.group(2))
 
         return "<pre lang='{lang}'>{text}</pre>".format(lang=lang, text=text)
 
-    def _html_list(self, match_obj):
-        outer_tags = lambda ch: ("<ol>", "</ol>")  if ch.isdigit() else \
-                                ("<ul>", "</ul>")
+    def _html_list(self, match_obj) -> str:
+        def outer_tags(ch: str):
+            return ("<ol>", "</ol>") if ch.isdigit() else ("<ul>", "</ul>")
 
         lines = (match_obj.group(1)[0] + " " + match_obj.group(2)).split("\n")
 
@@ -76,13 +76,13 @@ class Markdown:
 
         for number, line in enumerate(lines):
             level = (len(line) - len(line.lstrip())) // 2
-            text = text=line.strip().partition(" ")[2]
+            text = line.strip().partition(" ")[2]
             virt_list.update(
                 {
                     number: {
                         "level": level,
                         "text": text,
-                        "type": (line.lstrip()+"*")[0]
+                        "type": (line.lstrip() + "*")[0]
                     }
                 }
             )
@@ -110,7 +110,7 @@ class Markdown:
 
         return res
 
-    def _html_parag(self, match_obj):
+    def _html_parag(self, match_obj) -> str:
         text = match_obj.group(1)
 
         starts_with_tag = re.compile(r"^<\/?(li|h|p|block|img|hr|ul|ol|pre)")
@@ -120,7 +120,7 @@ class Markdown:
         else:
             return "\n<p>{text}</p>\n".format(text=text)
 
-    def _html_blockquote(self, match_obj):
+    def _html_blockquote(self, match_obj) -> str:
         text = match_obj.group(1).replace(">", "<br>")
 
         return "\n<blockquote>{text}</blockquote>".format(text=text)

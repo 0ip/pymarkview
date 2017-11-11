@@ -74,4 +74,4 @@ img {
 </style>
 '''
 
-mathjax = "<script type='text/javascript' async src='https://cdn.mathjax.org/mathjax/2.7-latest/MathJax.js?config=TeX-AMS_CHTML'></script>"
+mathjax = '''<script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-MML-AM_CHTML"></script>'''

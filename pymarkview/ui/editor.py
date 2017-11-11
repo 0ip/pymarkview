@@ -7,7 +7,6 @@ from urllib.request import url2pathname
 
 
 class LineNumberEditor(QFrame):
-
     def __init__(self, settings, *args):
         super().__init__(*args)
 
@@ -53,7 +52,6 @@ class LineNumberEditor(QFrame):
             QWidget.paintEvent(self, event)
 
     class Editor(QPlainTextEdit):
-
         document_dropped = pyqtSignal(str)
 
         def __init__(self, settings):
@@ -168,7 +166,11 @@ class LineNumberEditor(QFrame):
             # Construct dummy event in order to fire cleanup procedure in parent method
             mimeData = QMimeData()
             mimeData.setText("")
-            dummyEvent = QDropEvent(e.posF(), e.possibleActions(
-            ), mimeData, e.mouseButtons(), e.keyboardModifiers())
+            dummyEvent = QDropEvent(
+                e.posF(),
+                e.possibleActions(),
+                mimeData, e.mouseButtons(),
+                e.keyboardModifiers()
+            )
 
             QPlainTextEdit.dropEvent(self, dummyEvent)

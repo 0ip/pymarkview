@@ -2,6 +2,9 @@
 .saved_state
 settings.json
 
+# MyPy
+.mypy_cache/
+
 # PyCharm
 .idea/
 
