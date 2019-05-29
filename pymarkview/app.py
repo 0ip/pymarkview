@@ -56,7 +56,7 @@ class App(QMainWindow):
         # Init UI
         self.init_ui()
 
-    def add_action(self, text, tip=None, shortcut=None, checkable=False, checked=False, function=None):
+    def add_action(self, text, tip=None, shortcut=False, checkable=False, checked=False, function=None):
         action = QAction(
             text,
             self,
@@ -184,6 +184,7 @@ class App(QMainWindow):
         menu = menu_bar.addMenu("&Help")
         menu.addAction(inst_action)
 
+    def init_status(self):
         self.statusBar()
 
     def init_ui(self):
@@ -210,6 +211,8 @@ class App(QMainWindow):
         self.setCentralWidget(window)
 
         self.init_menu()
+
+        self.init_status()
 
         self.app.installEventFilter(self)
 

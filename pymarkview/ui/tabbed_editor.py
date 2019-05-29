@@ -168,6 +168,10 @@ class TabbedEditor(QTabWidget):
         assert path, "No file name provided!"
 
         if pmv_file:
+            curr_path = self.__get_path()
+            if not curr_path:  # temporary, unsaved tabs
+                return False
+
             path = str(Path(self.__get_path()).parent.joinpath(path))
 
         for uid, attrib_dict in self._tab_state.items():
